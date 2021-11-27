@@ -1,0 +1,110 @@
+---
+title: 'Part 2: chi-sqaure with lizards'' tails'
+author: "Devon Rossi"
+date: "11/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(broom)
+```
+
+## Read in data
+```{r}
+lizards <- read_csv(here("data", "lizards.csv"))
+```
+
+
+Get counts of lizards by species:
+```{r}
+lizards %>% 
+  count(spp) %>% 
+  arrange(-n)
+```
+
+## Make a subset
+
+- UTST lizards
+- Sites: IBPE (enclosure grassland), RABB (rabbit mesquite site), "EAST" (east tarbush site)
+- Tail condition is recorded (W = whole, B = broken)
+
+```{r}
+utst <- lizards %>% 
+  filter(spp == "UTST") %>% 
+  filter(site %in% c("IBPE", "RABB", "EAST")) %>% 
+  filter(tail %in% c("B", "W"))
+
+#use unique function in console to make sure your filter is restricting the variables you want (i.e. sites)
+```
+
+## Find counts and proportions of lizards with broken or whole tails at each site
+
+```{r}
+utst %>% 
+  count(site, tail)
+```
+
+
+```{r}
+tail_count <- utst %>% 
+  janitor::tabyl(site, tail) #contingency table
+
+tail_proportions <- tail_count %>% 
+  janitor::adorn_percentages() %>% #percent
+  janitor::adorn_pct_formatting(digits = 2) %>% #round to 2 places
+  janitor::adorn_ns() #counts
+```
+
+
+## Convert to a contingency table: Set up for Chi-Squared test
+
+Use `column_to_rowname()`
+
+```{r}
+lizard_ct <- tail_count %>% 
+  column_to_rownames(var = "site")
+
+#site names (EAST, IBPE, RABB) are now listed as row names!!!
+```
+
+
+## Chi-Square
+
+- Are tail breakage and site independent? (Site has no impact on tail breakage - expect similar proportions across 3 diff sites)
+
+- Are those proportions at each site of lizards that have B and W so different that we have enough evidence to REJECT NULL HYPOTHESIS of independence which would allow us to conclude that 
+yes, there is a significant association of site on tail breakage?
+
+## Use Broom::tidy(lizard_x2) to set up for in-line referencing
+```{r}
+lizard_x2 <- chisq.test(lizard_ct)
+lizard_x2
+
+lizard_tidy <- broom::tidy(lizard_x2)
+```
+
+Chi-squared value of 13.06
+
+Degrees of freedom: number of rows(3) - 1 = 2 times
+number of columns(2) - 1 = 1 
+
+2 x 1 = 2 degrees of freedom
+
+p-value = 0.0014
+
+*Using a sig level of .05, yes we have significant evidence to reject the null that site and tail breakage are NOT independent!!!*
+
+*There is a sig association b/w site and tail breakage*
+
+There is a significant association (i.e. non-independence) between site and lizard tail breakage ($\chi$^2^(`r lizard_tidy$parameter`) = `r lizard_tidy$statistic`, *p* = `r lizard_tidy$p.value`).
+
+
+
+
+
+
+
